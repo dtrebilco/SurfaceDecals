@@ -1,0 +1,106 @@
+
+[Vertex shader]
+
+uniform vec3 pos;
+uniform float radius;
+uniform mat4 orient;
+
+void main(){
+
+  //gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;  
+  
+  vec3 tmpPos = mat3(orient) * (gl_Vertex.xyz * radius);
+  
+  tmpPos.xyz += pos;
+  
+  vec4 outPos = gl_ModelViewProjectionMatrix * vec4(tmpPos, 1.0);  
+  
+  // If the position is behind the near plane, clamp
+  if(outPos.z < -outPos.w)
+  {
+    //TODO: This seems to work in this demo case, not sure why..
+    outPos.z = -0.999999;
+    outPos.w = 1.0;
+  }
+  
+  gl_Position = outPos;
+}
+
+
+[Fragment shader]
+
+uniform vec3 pos;
+uniform float radius;
+uniform mat4 orient;
+uniform float matIntensity;
+
+uniform vec2 pixelSize;
+
+uniform sampler2D depthTex;
+uniform sampler2D decalTex;
+
+/*
+vec3 GetDepthPositionVS()
+{
+  float3 retPosVS;
+
+  // Lookup the depth texture 
+  // (already in view space, but could transfor a depth buffer value by  = gl_ProjectionMatrix[3].z/(depthValue * -2.0 + 1.0 - gl_ProjectionMatrix[2].z);
+  // See http://www.opengl.org/discussion_boards/ubbthreads.php?ubb=showflat&Board=3&Number=237666
+  retPosVS.z = texture(depthTex, texCoords).r; 
+
+  // Get the xy position
+  retPosVS.xy = (gl_FragCoord.xy * gl_FragCoord.ww * retPosVS.zz) /
+                float2(gl_ProjectionMatrix[0][0], gl_ProjectionMatrix[1][1]); 
+
+
+  return retPosVS;
+}
+*/
+
+vec3 GetDepthPositionVS()
+{
+	vec2 texCoord = gl_FragCoord.xy * pixelSize;
+	
+  return texture(depthTex, texCoord).xyz; 
+}
+
+void main()
+{
+  //gl_FragColor = vec4(1.0);
+
+  // Get the current depth buffer's position in view space
+  vec3 positionVS = GetDepthPositionVS();
+
+  // Convert the position to model space (and then to normalized Cube space)
+  vec3 positionCS = (gl_ModelViewMatrixInverse * vec4(positionVS, 1.0)).xyz;
+
+  positionCS -= pos;
+
+
+  positionCS = positionCS * mat3(orient);
+
+  // Scale the coordinates by the box scale
+  positionCS *= 1.0 / (radius * 0.70710678); //g_mat_invDecalSize;
+
+  // Convert the position to texture coordinates
+  vec2 texCoords = positionCS.xy * 0.5 + 0.5;
+
+  // Lookup intensity texture
+  float intensity = texture(decalTex, texCoords).r * saturate(matIntensity);
+
+  // Test if the z is out side the range  
+  //if(abs(positionCS.z) >= 1.0) 
+  //{
+  //  intensity = 0.0;
+  //}
+
+  // Fade the decal in z
+  gl_FragColor = vec4(lerp(intensity, 0.0, saturate(positionCS.z * positionCS.z)));  
+  //gl_FragColor = vec4(lerp(intensity, 0.0, saturate(dot(positionCS, positionCS))));  
+  
+  //gl_FragColor.rgb = positionVS;
+  //gl_FragColor.rgb = vec3(1.0 - saturate(dot(positionCS, positionCS)));
+  
+  //gl_FragColor.rgb = vec3(1.0 - saturate(positionCS.x * positionCS.x));
+}

@@ -1,0 +1,27 @@
+/////////////////////////////////////////////////////////////////////
+// DepthOnly
+// This shader program simply outputs the depth position
+/////////////////////////////////////////////////////////////////////
+
+[Vertex shader]
+//out float depthVS;
+out vec4 depthVS;
+
+void main(){
+
+  //depthVS = (gl_ModelViewMatrix * gl_Vertex).z;
+  depthVS = (gl_ModelViewMatrix * gl_Vertex);
+
+  gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;  
+}
+
+
+[Fragment shader]
+
+//in float depthVS;
+in vec4 depthVS;
+
+void main()
+{
+	gl_FragColor = depthVS / depthVS.w;
+}

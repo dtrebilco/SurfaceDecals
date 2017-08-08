@@ -1,0 +1,130 @@
+/////////////////////////////////////////////////////////////////////
+// LightingMP_ambient
+// This shader program renders the ambient used in multi-pass forward
+// render technique.
+//
+// This code is taken directly from the Humus DynamicLighting demo
+/////////////////////////////////////////////////////////////////////
+[Vertex shader]
+
+in vec2 textureCoord;
+in vec3 tangent;
+in vec3 binormal;
+in vec3 normal;
+
+in float matWeight;
+in vec4 matIndices;
+
+uniform vec3 camPos;
+
+out vec2 texCoord;
+out vec3 vVec;
+
+out float matWeightData;
+flat out vec4 matData;
+
+void main(){
+
+  gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;  
+  
+	texCoord = textureCoord;
+
+	vec3 viewVec = camPos - gl_Vertex.xyz;
+	vVec.x = dot(viewVec, tangent);
+	vVec.y = dot(viewVec, binormal);
+	vVec.z = dot(viewVec, normal);
+	
+	matData = matIndices * 255.0;
+	matWeightData = matWeight;	
+}
+
+
+[Fragment shader]
+
+uniform sampler2D Base;
+uniform sampler2D Bump;
+
+uniform sampler2D screenMask;
+uniform sampler2D perlinNoise;
+
+uniform sampler2DArray diffuseArray;
+uniform sampler2DArray bumpArray;
+
+uniform vec2 pixelSize;
+uniform vec2 plxCoeffs;
+uniform bool hasParallax;
+
+uniform float debugMatIndex;
+
+uniform vec2 plxCoeffsArray[6];
+
+in vec2 texCoord;
+in vec3 vVec;
+in float matWeightData;
+
+flat in vec4 matData;
+
+
+void main(){
+
+  vec3 viewVec = normalize(vVec);
+
+	vec2 plxTexCoord = texCoord;
+	if (hasParallax){
+		float height = texture2D(Bump, texCoord).w;
+		float offset = height * plxCoeffs.x + plxCoeffs.y;
+		plxTexCoord += offset * viewVec.xy;
+	}
+
+
+  vec2 scrTexCoord = gl_FragCoord.xy * pixelSize;
+  float decalMask = texture(screenMask, scrTexCoord).a; 
+
+	vec4 base = texture2D(Base, plxTexCoord);
+	gl_FragColor = 0.2 * base;
+	
+	// Select the layers to blend between
+	// Clamp index? not sure of rules for vector lookup with dynamic var
+	float matWeightDataScale = saturate(matWeightData + decalMask) * 2.999;
+	int matIndex = int(matWeightDataScale); 
+
+#ifdef DEBUG_MAT_DATA
+  matIndex = int(debugMatIndex); // why is this producing rendering issues when it is a full number?
+  matWeightDataScale = 0.0f;
+#endif //	DEBUG_MAT_DATA
+
+	float offset1 = matData[matIndex];
+	float offset2 = matData[matIndex + 1];	
+	
+	// Offset tex coord by parallaxes
+	vec2 plxCoeffs1 = plxCoeffsArray[int(offset1)];	
+	float height1 = texture(bumpArray, vec3(texCoord, offset1)).w;
+	float plxOffset1 = height1 * plxCoeffs1.x + plxCoeffs1.y;
+	vec2 plxTexCoord1 = texCoord + (plxOffset1 * viewVec.xy);
+	
+	vec2 plxCoeffs2 = plxCoeffsArray[int(offset2)];
+	float height2 = texture(bumpArray, vec3(texCoord, offset2)).w;
+	float plxOffset2 = height2 * plxCoeffs2.x + plxCoeffs2.y;
+	vec2 plxTexCoord2 = texCoord + (plxOffset2 * viewVec.xy);
+		
+  vec4 color1 = texture(diffuseArray, vec3(plxTexCoord1, offset1));  
+  vec4 color2 = texture(diffuseArray, vec3(plxTexCoord2, offset2));    
+  
+  float textureMask = fract(matWeightDataScale);  
+  float texCmpValue = 1.0 - height2;
+  
+  texCmpValue = saturate(abs(texture(perlinNoise, texCoord * 0.1).r * 0.5 - 0.5 + texCmpValue));
+  textureMask = saturate((textureMask - (texCmpValue * 0.98)) * 50.0);      
+  
+  //gl_FragColor.rgb = matData.rgb;
+  //gl_FragColor.rgb = vec3(matWeightData);
+  gl_FragColor.rgb = lerp(color1, color2, textureMask).rgb;	
+  
+  
+  //gl_FragColor.rgb = vec3(texture(screenMask, scrTexCoord).a);
+  
+#ifdef DEBUG_VERTEX_WEIGHTS
+  gl_FragColor.rgb = vec3(matWeightData);
+#endif // DEBUG_VERTEX_WEIGHTS 
+  
+}

@@ -1,0 +1,17 @@
+/////////////////////////////////////////////////////////////////////
+// PlainColor
+/////////////////////////////////////////////////////////////////////
+[Vertex shader]
+
+void main(){
+  gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;  
+}
+
+
+[Fragment shader]
+
+uniform vec4 outColor;
+
+void main(){
+	gl_FragColor = outColor;
+}
