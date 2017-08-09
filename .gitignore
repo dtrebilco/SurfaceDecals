@@ -27,3 +27,8 @@
 # Executables
 *.out
 *.app
+SurfaceDecals/SurfaceDecals.vcxproj.user
+SurfaceDecals/SurfaceDecals_d.ilk
+SurfaceDecals/.vs/
+SurfaceDecals/Debug/
+SurfaceDecals/SurfaceDecals_d.exe

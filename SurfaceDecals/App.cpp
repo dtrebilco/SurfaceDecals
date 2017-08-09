@@ -21,8 +21,9 @@
 \*********************************************************************/
 
 #include "App.h"
+#include "../Framework3/glm/gtx/euler_angles.hpp"
 
-BaseApp *app = new App();
+BaseApp *CreateApp() { return new App(); }
 
 
 App::App()
@@ -46,7 +47,7 @@ void App::moveCamera(const vec3 &dir)
   vec3 point;
   const BTri *tri;
   if (m_bsp.intersects(camPos, newPos, &point, &tri)){
-    newPos = point + tri->plane.xyz();
+    newPos = point + vec3(tri->plane);
   }
   m_bsp.pushSphere(newPos, 30);
 
@@ -187,7 +188,7 @@ bool App::onMouseButton(const int x, const int y, const MouseButton button, cons
         decal.m_position = pos;
         decal.m_radius = radius;
         decal.m_intensity = 10.0f;
-        decal.m_matrix = translate(0.5f, 0.5f, 0.5f) * scale(0.5f / radius, 0.5f / radius, 0.5f / radius) * rotateZXY(x, y, z) * translate(-pos);
+        decal.m_matrix = translate(0.5f, 0.5f, 0.5f) * scale(0.5f / radius, 0.5f / radius, 0.5f / radius) * glm::eulerAngleYXZ(x, y, z) * translate(-pos);
 
         decal.m_orient = mat4(up.x, right.x, fwd.x, 0.0f,
                               up.y, right.y, fwd.y, 0.0f,
@@ -216,13 +217,6 @@ bool App::onMouseWheel(const int x, const int y, const int scroll)
 
 bool App::load()
 {
-  // Just require OpenGL 3.0
-  if(!GLVER(3,0))
-  {
-    ErrorMsg("No GL 3.0 support");
-    return false;
-  }
-
   // Set the shader version used
   ((OpenGLRenderer*)renderer)->SetShaderVersionStr("#version 130");
 
@@ -480,14 +474,13 @@ void App::drawFrame()
 {
   // Update and load the modelview and projection matrices
   m_projectionMatrix = perspectiveMatrixX(1.5f, width, height, 5, 4000);
-  m_modelviewMatrix = rotateXY(-wx, -wy);
-  m_modelviewMatrix.translate(-camPos);
+  m_modelviewMatrix = rotateXY(-wx, -wy) * translate(-camPos);
 
   glMatrixMode(GL_PROJECTION);
-  glLoadTransposeMatrixfARB(m_projectionMatrix);
+  glLoadMatrixf(value_ptr(m_projectionMatrix));
 
   glMatrixMode(GL_MODELVIEW);
-  glLoadTransposeMatrixfARB(m_modelviewMatrix);
+  glLoadMatrixf(value_ptr(m_modelviewMatrix));
 
   // Update the decals for time
   UpdateDecals();

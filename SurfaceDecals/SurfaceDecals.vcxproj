@@ -151,10 +151,12 @@
     <ClCompile Include="..\Framework3\Imaging\Image.cpp" />
     <ClCompile Include="..\Framework3\Math\Scissor.cpp" />
     <ClCompile Include="..\Framework3\Math\Vector.cpp" />
+    <ClCompile Include="..\Framework3\OpenGL\gl_Extensions.c" />
     <ClCompile Include="..\Framework3\OpenGL\OpenGLApp.cpp" />
     <ClCompile Include="..\Framework3\OpenGL\OpenGLExtensions.cpp" />
     <ClCompile Include="..\Framework3\OpenGL\OpenGLRenderer.cpp" />
     <ClCompile Include="..\Framework3\OpenGL\project.cpp" />
+    <ClCompile Include="..\Framework3\OpenGL\wgl_Extensions.c" />
     <ClCompile Include="..\Framework3\Platform.cpp" />
     <ClCompile Include="..\Framework3\Renderer.cpp" />
     <ClCompile Include="..\Framework3\Util\BSP.cpp" />
@@ -180,9 +182,11 @@
     <ClInclude Include="..\Framework3\Imaging\Image.h" />
     <ClInclude Include="..\Framework3\Math\Scissor.h" />
     <ClInclude Include="..\Framework3\Math\Vector.h" />
+    <ClInclude Include="..\Framework3\OpenGL\gl_Extensions.h" />
     <ClInclude Include="..\Framework3\OpenGL\OpenGLApp.h" />
     <ClInclude Include="..\Framework3\OpenGL\OpenGLExtensions.h" />
     <ClInclude Include="..\Framework3\OpenGL\OpenGLRenderer.h" />
+    <ClInclude Include="..\Framework3\OpenGL\wgl_Extensions.h" />
     <ClInclude Include="..\Framework3\Platform.h" />
     <ClInclude Include="..\Framework3\Renderer.h" />
     <ClInclude Include="..\Framework3\Util\BSP.h" />

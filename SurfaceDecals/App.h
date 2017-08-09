@@ -30,8 +30,8 @@
 
 struct Decal
 {
-	float4x4 m_matrix;
-  float4x4 m_orient;
+  mat4 m_matrix;
+  mat4 m_orient;
 
 	float3 m_position;
 	float m_radius;

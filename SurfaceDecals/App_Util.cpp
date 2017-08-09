@@ -71,10 +71,8 @@ EditorData::EditorData()
 
 void ConvertMatrix(const mat4 &srcMat, GLdouble outMat[16])
 {
-  mat4 srcTranspose = transpose(srcMat);
-
   // Loop and convert to double format
-  const float * srcData = (const float*)srcTranspose.rows;
+  const float * srcData = (const float*)value_ptr(srcMat);
   for(int i=0; i< 16; i++){
     outMat[i] = srcData[i];
   }

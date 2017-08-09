@@ -102,6 +102,12 @@
     <ClCompile Include="App.cpp" />
     <ClCompile Include="App_Util.cpp" />
     <ClCompile Include="SurfaceDecalModel.cpp" />
+    <ClCompile Include="..\Framework3\OpenGL\gl_Extensions.c">
+      <Filter>Framework3\OpenGL</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Framework3\OpenGL\wgl_Extensions.c">
+      <Filter>Framework3\OpenGL</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Framework3\BaseApp.h">
@@ -172,6 +178,12 @@
     </ClInclude>
     <ClInclude Include="App.h" />
     <ClInclude Include="SurfaceDecalModel.h" />
+    <ClInclude Include="..\Framework3\OpenGL\gl_Extensions.h">
+      <Filter>Framework3\OpenGL</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Framework3\OpenGL\wgl_Extensions.h">
+      <Filter>Framework3\OpenGL</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\Framework3\Windows\Resources.rc">

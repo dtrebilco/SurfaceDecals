@@ -409,7 +409,7 @@ void BaseApp::controls(){
 	float cosX = cosf(wx), sinX = sinf(wx), cosY = cosf(wy), sinY = sinf(wy);
 	vec3 dx(cosY, 0, sinY);
 	vec3 dy(-sinX * sinY,  cosX, sinX * cosY);
-	vec3 dz(cosX * sinY, sinX, -cosX * cosY);
+	vec3 dz(-cosX * sinY, -sinX, cosX * cosY);
 
 	vec3 dir(0, 0, 0);
 	if (keys[leftKey])     dir -= dx;
