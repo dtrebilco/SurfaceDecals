@@ -21,8 +21,11 @@
 
 #include "OpenGLApp.h"
 
-OpenGLApp::OpenGLApp(){
+OpenGLApp::OpenGLApp()
+: m_frameDeltaIndex(0)
+{
 	glContext = NULL;
+  memset(m_frameDeltas, 0, sizeof(m_frameDeltas));
 }
 
 #if defined(_WIN32)
@@ -38,7 +41,8 @@ void initEntryPoints(HWND hwnd, const PIXELFORMATDESCRIPTOR &pfd){
 	HGLRC hglrc = wglCreateContext(hdc);
 	wglMakeCurrent(hdc, hglrc);
 
-	initExtensions(hdc);
+  ogl_LoadFunctions();
+	wgl_LoadFunctions(hdc);
 
 	wglMakeCurrent(NULL, NULL);
 	wglDeleteContext(hglrc);
@@ -178,9 +182,7 @@ bool OpenGLApp::initAPI(){
 
 
 	hwnd = CreateWindow("Humus", str, flags, x, y, width, height, HWND_DESKTOP, NULL, hInstance, NULL);
-
-
-
+  
 	PIXELFORMATDESCRIPTOR pfd = {
         sizeof (PIXELFORMATDESCRIPTOR), 1,
 		PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
@@ -209,7 +211,7 @@ bool OpenGLApp::initAPI(){
 	int bestFormat = 0;
 	int bestSamples = 0;
 	uint nPFormats;
-	if (WGL_ARB_pixel_format_supported && wglChoosePixelFormatARB(hdc, iAttribs, NULL, elementsOf(pixelFormats), pixelFormats, &nPFormats) && nPFormats > 0){
+	if (wgl_ext_ARB_pixel_format && wglChoosePixelFormatARB(hdc, iAttribs, NULL, elementsOf(pixelFormats), pixelFormats, &nPFormats) && nPFormats > 0){
 		int minDiff = 0x7FFFFFFF;
 		int attrib = WGL_SAMPLES_ARB;
 		int samples;
@@ -231,13 +233,21 @@ bool OpenGLApp::initAPI(){
 
 	SetPixelFormat(hdc, pixelFormats[bestFormat], &pfd);
 
-	glContext = wglCreateContext(hdc);
+  if(wgl_ext_ARB_create_context)
+  {
+    glContext = wglCreateContextAttribsARB(hdc, 0, 0);
+  }
+  else
+  {
+    glContext = wglCreateContext(hdc);
+  }
 	wglMakeCurrent(hdc, glContext);
 
-	initExtensions(hdc);
+  ogl_LoadFunctions();
+	wgl_LoadFunctions(hdc);
 
-	if (WGL_ARB_multisample_supported && GL_ARB_multisample_supported && antiAliasSamples > 0){
-		glEnable(GL_MULTISAMPLE_ARB);
+	if (wgl_ext_ARB_multisample && antiAliasSamples > 0){
+		glEnable(GL_MULTISAMPLE);
 	}
 
 	if (fullscreen) captureMouse(!configDialog->isVisible());
@@ -654,7 +664,7 @@ void OpenGLApp::beginFrame(){
 
 void OpenGLApp::endFrame(){
 #if defined(_WIN32)
-	if (WGL_EXT_swap_control_supported){
+	if (wgl_ext_EXT_swap_control){
 		wglSwapIntervalEXT(vSync? 1 : 0);
 	}
 
@@ -687,8 +697,8 @@ bool OpenGLApp::checkForErrors(){
 			outputDebugString("GL_STACK_UNDERFLOW");
 		} else if (error ==    GL_OUT_OF_MEMORY){
 			outputDebugString("GL_OUT_OF_MEMORY");
-		} else if (error ==    GL_INVALID_FRAMEBUFFER_OPERATION_EXT){
-			outputDebugString("GL_INVALID_FRAMEBUFFER_OPERATION_EXT");
+		} else if (error == GL_INVALID_FRAMEBUFFER_OPERATION){
+			outputDebugString("GL_INVALID_FRAMEBUFFER_OPERATION");
 		} else {
 			outputDebugString("Unrecognized OpenGL error");
 		}
@@ -722,3 +732,56 @@ bool OpenGLApp::captureScreenshot(Image &img){
 
 	return true;
 }
+
+
+void OpenGLApp::drawFPSChart()
+{
+  renderer->reset();
+  renderer->changeDepthState(noDepthWrite);
+  renderer->changeRasterizerState(cullNone);
+  renderer->apply();
+
+  const int frameDeltaArraySize = sizeof(m_frameDeltas) / sizeof(m_frameDeltas[0]);
+
+  m_frameDeltas[m_frameDeltaIndex] = frameTime * 1000.0f;
+  m_frameDeltaIndex++;
+  if(m_frameDeltaIndex >= frameDeltaArraySize)
+  {
+    m_frameDeltaIndex = 0;
+  }
+
+  // Draw 60 and 30 FPS lines
+  float yScale = height / 100.0f;
+  glBegin(GL_LINES);
+    glColor4f(0.0f, 1.0f, 0.0f, 1.0f);
+    glVertex2f(0.0, (100.0f - 16.6f) * yScale);
+    glVertex2f(float(width), (100.0f - 16.6f) * yScale);
+
+    glColor4f(1.0f, 1.0f, 0.0f, 1.0f);
+    glVertex2f(0.0, (100.0f - 33.3f) * yScale);
+    glVertex2f(float(width), (100.0f - 33.3f) * yScale);
+  glEnd();
+    
+  // Draw the main lines
+  glColor4f(0.0f, 1.0f, 1.0f, 1.0f);
+  float xInc = width / float(frameDeltaArraySize);
+  int printStart = m_frameDeltaIndex;
+  glBegin(GL_LINE_STRIP);
+    for(int i = 0; i < frameDeltaArraySize; i++)
+    {
+      glVertex2f(i * xInc, (100.0f - m_frameDeltas[printStart]) * yScale);
+
+      printStart++;
+      if(printStart >= frameDeltaArraySize)
+      {
+        printStart = 0;
+      }
+    }
+  glEnd();
+
+}
+
+
+
+
+

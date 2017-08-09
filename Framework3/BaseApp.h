@@ -64,6 +64,7 @@ public:
 	virtual void beginFrame() = 0;
 	virtual void drawFrame() = 0;
 	void drawGUI();
+  virtual void drawFPSChart() = 0;
 	virtual void endFrame() = 0;
 	void initTime();
 	void updateTime();
@@ -80,6 +81,7 @@ public:
 	virtual bool onJoystickAxis(const int axis, const float value);
 	virtual bool onJoystickButton(const int button, const bool pressed);
 	virtual void onSize(const int w, const int h);
+  virtual void onFileDrop(const char * file);
 	virtual void onClose();
 
 	bool isDone() const { return done; }
@@ -141,7 +143,7 @@ protected:
 
 	Queue <Widget *> widgets;
 	Dialog *configDialog, *keysDialog, *joystickDialog;
-	CheckBox *invertMouseBox, *fullscreenBox, *vSyncBox;
+	CheckBox *invertMouseBox, *showFPSChartBox, *fullscreenBox, *vSyncBox;
 	Slider *mouseSensSlider;
 	DropDownList *resolution, *antiAlias;
 	PushButton *applyRes, *configureKeys, *configureJoystick;
@@ -167,6 +169,7 @@ protected:
 	bool invertMouse;
 	float mouseSensibility;
 	bool showFPS;
+  bool showFPSChart;
 	bool vSync;
 
 	// Benchmarking

@@ -162,7 +162,7 @@ void DropDownList::onFocus(const bool focus){
 }
 
 void DropDownList::draw(Renderer *renderer, const FontID defaultFont, const SamplerStateID linearClamp, const BlendStateID blendSrcAlpha, const DepthStateID depthState){
-	vec4 col = enabled? color : vec4(color.xyz() * 0.5f, 1);
+	vec4 col = enabled? color : vec4(vec3(color) * 0.5f, 1);
 	vec4 black(0, 0, 0, 1);
 
 	vec2 quad[] = { MAKEQUAD(xPos, yPos, xPos + width, yPos + height, 2) };

@@ -28,8 +28,8 @@
 #include <mmsystem.h>
 #pragma comment (lib, "winmm.lib")
 
-
-extern BaseApp *app;
+BaseApp *CreateApp();
+BaseApp *app = nullptr;
 
 #define GETX(l) (int(l & 0xFFFF))
 #define GETY(l) (int(l) >> 16)
@@ -110,13 +110,32 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam){
 		break;
 	case WM_CREATE:
 		ShowWindow(hwnd, SW_SHOW);
+    DragAcceptFiles(hwnd, true);
 		break;
 	case WM_CLOSE:
 		app->closeWindow(true, true);
 		break;
 	case WM_DESTROY:
+    DragAcceptFiles(hwnd, false);
 		PostQuitMessage(0);
 		break;
+  case WM_DROPFILES:
+    {
+      HDROP hDrop = (HDROP)wParam;
+      UINT fileCount = DragQueryFile(hDrop, 0xFFFFFFFF, NULL, 0);
+      
+      char buff[MAX_PATH];
+      for (UINT i = 0; i < fileCount; ++i)
+      {
+        UINT chars = DragQueryFile(hDrop, i, buff, MAX_PATH);
+        if (chars != 0)
+        {
+          app->onFileDrop(buff);
+        }
+      }
+      DragFinish(hDrop);
+    }
+    break;
 	default:
 		return DefWindowProc(hwnd, message, wParam, lParam);
 	}
@@ -125,6 +144,23 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam){
 
 #ifdef _DEBUG
 #include <crtdbg.h>
+
+long g_allocRequestCount = 0;
+long g_allocFreeCount = 0;
+int YourAllocHook( int allocType, void *userData, size_t size, int blockType, long requestNumber, const unsigned char *filename, int lineNumber)
+{
+  if(allocType == _HOOK_ALLOC ||
+     allocType == _HOOK_REALLOC)
+  {
+    g_allocRequestCount++;
+  }
+  else
+  {
+    g_allocFreeCount++;
+  }
+  return true;
+}
+
 #endif
 
 #include <stdio.h>
@@ -133,10 +169,13 @@ int WINAPI WinMain(HINSTANCE hThisInst, HINSTANCE hLastInst, LPSTR lpszCmdLine, 
 #ifdef _DEBUG
 	int flag = _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG); // Get current flag
 	flag |= _CRTDBG_LEAK_CHECK_DF; // Turn on leak-checking bit
-	flag |= _CRTDBG_CHECK_ALWAYS_DF; // Turn on CrtCheckMemory
+//	flag |= _CRTDBG_CHECK_ALWAYS_DF; // Turn on CrtCheckMemory
 //	flag |= _CRTDBG_DELAY_FREE_MEM_DF;
 	_CrtSetDbgFlag(flag); // Set flag to the new value
+  _CrtSetAllocHook(YourAllocHook);
 #endif
+
+  app = CreateApp();
 	initCPU();
 
 	// Make sure we're running in the exe's path

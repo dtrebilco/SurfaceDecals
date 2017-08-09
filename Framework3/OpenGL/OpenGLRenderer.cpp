@@ -21,6 +21,10 @@
 
 #include "OpenGLRenderer.h"
 
+#ifndef BUFFER_OFFSET
+#define BUFFER_OFFSET(i) ((char *) NULL + (i))
+#endif
+
 typedef GLvoid (APIENTRY *UNIFORM_FUNC)(GLint location, GLsizei count, const void *value);
 typedef GLvoid (APIENTRY *UNIFORM_MAT_FUNC)(GLint location, GLsizei count, GLboolean transpose, const GLfloat *value);
 
@@ -40,21 +44,21 @@ struct Texture {
 
 ConstantType getConstantType(GLenum type){
 	switch (type){
-		case GL_FLOAT:          return CONSTANT_FLOAT;
-		case GL_FLOAT_VEC2_ARB: return CONSTANT_VEC2;
-		case GL_FLOAT_VEC3_ARB: return CONSTANT_VEC3;
-		case GL_FLOAT_VEC4_ARB: return CONSTANT_VEC4;
-		case GL_INT:            return CONSTANT_INT;
-		case GL_INT_VEC2_ARB:   return CONSTANT_IVEC2;
-		case GL_INT_VEC3_ARB:   return CONSTANT_IVEC3;
-		case GL_INT_VEC4_ARB:   return CONSTANT_IVEC4;
-		case GL_BOOL_ARB:       return CONSTANT_BOOL;
-		case GL_BOOL_VEC2_ARB:  return CONSTANT_BVEC2;
-		case GL_BOOL_VEC3_ARB:  return CONSTANT_BVEC3;
-		case GL_BOOL_VEC4_ARB:  return CONSTANT_BVEC4;
-		case GL_FLOAT_MAT2_ARB: return CONSTANT_MAT2;
-		case GL_FLOAT_MAT3_ARB: return CONSTANT_MAT3;
-		case GL_FLOAT_MAT4_ARB: return CONSTANT_MAT4;
+		case GL_FLOAT:      return CONSTANT_FLOAT;
+		case GL_FLOAT_VEC2: return CONSTANT_VEC2;
+		case GL_FLOAT_VEC3: return CONSTANT_VEC3;
+		case GL_FLOAT_VEC4: return CONSTANT_VEC4;
+		case GL_INT:        return CONSTANT_INT;
+		case GL_INT_VEC2:   return CONSTANT_IVEC2;
+		case GL_INT_VEC3:   return CONSTANT_IVEC3;
+		case GL_INT_VEC4:   return CONSTANT_IVEC4;
+		case GL_BOOL:       return CONSTANT_BOOL;
+		case GL_BOOL_VEC2:  return CONSTANT_BVEC2;
+		case GL_BOOL_VEC3:  return CONSTANT_BVEC3;
+		case GL_BOOL_VEC4:  return CONSTANT_BVEC4;
+		case GL_FLOAT_MAT2: return CONSTANT_MAT2;
+		case GL_FLOAT_MAT3: return CONSTANT_MAT3;
+		case GL_FLOAT_MAT4: return CONSTANT_MAT4;
 	}
 
 	return (ConstantType) -1;
@@ -182,11 +186,11 @@ const int DST_ALPHA            = GL_DST_ALPHA;
 const int ONE_MINUS_DST_ALPHA  = GL_ONE_MINUS_DST_ALPHA;
 const int SRC_ALPHA_SATURATE   = GL_SRC_ALPHA_SATURATE;
 
-const int BM_ADD              = GL_FUNC_ADD_EXT;
-const int BM_SUBTRACT         = GL_FUNC_SUBTRACT_EXT;
-const int BM_REVERSE_SUBTRACT = GL_FUNC_REVERSE_SUBTRACT_EXT;
-const int BM_MIN              = GL_MIN_EXT;
-const int BM_MAX              = GL_MAX_EXT;
+const int BM_ADD              = GL_FUNC_ADD;
+const int BM_SUBTRACT         = GL_FUNC_SUBTRACT;
+const int BM_REVERSE_SUBTRACT = GL_FUNC_REVERSE_SUBTRACT;
+const int BM_MIN              = GL_MIN;
+const int BM_MAX              = GL_MAX;
 
 // Depth-test constants
 const int NEVER    = GL_NEVER;
@@ -250,27 +254,22 @@ OpenGLRenderer::OpenGLRenderer(AGLContext aGlc) : Renderer(){
   m_shaderVersionStr = "";
 
 	GLint units = 1;
-	if (GL_ARB_fragment_shader_supported || GL_ARB_fragment_program_supported){
-		glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS_ARB, &units);
-	} else {
-		glGetIntegerv(GL_MAX_TEXTURE_UNITS, &units);
-	}
+	glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &units);
 	nImageUnits = units;
 
 	memset(textureLod, 0, sizeof(textureLod));
 
-	if (GL_ARB_draw_buffers_supported){
-		GLint mrt = 1;
-		glGetIntegerv(GL_MAX_DRAW_BUFFERS_ARB, &mrt);
-		nMRTs = mrt;
-	}
+	GLint mrt = 1;
+	glGetIntegerv(GL_MAX_DRAW_BUFFERS, &mrt);
+	nMRTs = mrt;
+
 	if (nMRTs > MAX_MRTS) nMRTs = MAX_MRTS;
 
 	for (uint i = 0; i < nMRTs; i++){
-		drawBuffers[i] = GL_COLOR_ATTACHMENT0_EXT + i;
+		drawBuffers[i] = GL_COLOR_ATTACHMENT0 + i;
 	}
 
-	if (GL_EXT_texture_filter_anisotropic_supported){
+	if (ogl_ext_EXT_texture_filter_anisotropic){
 		GLint aniso = 1;
 		glGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &aniso);
 		maxAnisotropic = aniso;
@@ -288,21 +287,21 @@ OpenGLRenderer::OpenGLRenderer(AGLContext aGlc) : Renderer(){
 
 	memset(activeVertexFormat, VF_NONE, sizeof(activeVertexFormat));
 
-	uniformFuncs[CONSTANT_FLOAT] = (void *) glUniform1fvARB;
-	uniformFuncs[CONSTANT_VEC2]  = (void *) glUniform2fvARB;
-	uniformFuncs[CONSTANT_VEC3]  = (void *) glUniform3fvARB;
-	uniformFuncs[CONSTANT_VEC4]  = (void *) glUniform4fvARB;
-	uniformFuncs[CONSTANT_INT]   = (void *) glUniform1ivARB;
-	uniformFuncs[CONSTANT_IVEC2] = (void *) glUniform2ivARB;
-	uniformFuncs[CONSTANT_IVEC3] = (void *) glUniform3ivARB;
-	uniformFuncs[CONSTANT_IVEC4] = (void *) glUniform4ivARB;
-	uniformFuncs[CONSTANT_BOOL]  = (void *) glUniform1ivARB;
-	uniformFuncs[CONSTANT_BVEC2] = (void *) glUniform2ivARB;
-	uniformFuncs[CONSTANT_BVEC3] = (void *) glUniform3ivARB;
-	uniformFuncs[CONSTANT_BVEC4] = (void *) glUniform4ivARB;
-	uniformFuncs[CONSTANT_MAT2]  = (void *) glUniformMatrix2fvARB;
-	uniformFuncs[CONSTANT_MAT3]  = (void *) glUniformMatrix3fvARB;
-	uniformFuncs[CONSTANT_MAT4]  = (void *) glUniformMatrix4fvARB;
+	uniformFuncs[CONSTANT_FLOAT] = (void *) glUniform1fv;
+	uniformFuncs[CONSTANT_VEC2]  = (void *) glUniform2fv;
+	uniformFuncs[CONSTANT_VEC3]  = (void *) glUniform3fv;
+	uniformFuncs[CONSTANT_VEC4]  = (void *) glUniform4fv;
+	uniformFuncs[CONSTANT_INT]   = (void *) glUniform1iv;
+	uniformFuncs[CONSTANT_IVEC2] = (void *) glUniform2iv;
+	uniformFuncs[CONSTANT_IVEC3] = (void *) glUniform3iv;
+	uniformFuncs[CONSTANT_IVEC4] = (void *) glUniform4iv;
+	uniformFuncs[CONSTANT_BOOL]  = (void *) glUniform1iv;
+	uniformFuncs[CONSTANT_BVEC2] = (void *) glUniform2iv;
+	uniformFuncs[CONSTANT_BVEC3] = (void *) glUniform3iv;
+	uniformFuncs[CONSTANT_BVEC4] = (void *) glUniform4iv;
+	uniformFuncs[CONSTANT_MAT2]  = (void *) glUniformMatrix2fv;
+	uniformFuncs[CONSTANT_MAT3]  = (void *) glUniformMatrix3fv;
+	uniformFuncs[CONSTANT_MAT4]  = (void *) glUniformMatrix4fv;
 }
 
 OpenGLRenderer::~OpenGLRenderer(){
@@ -321,19 +320,19 @@ OpenGLRenderer::~OpenGLRenderer(){
 		}
 		delete shaders[i].samplers;
 		delete shaders[i].uniforms;
-		glDeleteObjectARB(shaders[i].vertexShader);
-		glDeleteObjectARB(shaders[i].fragmentShader);
-		glDeleteObjectARB(shaders[i].program);
+		glDeleteShader(shaders[i].vertexShader);
+		glDeleteShader(shaders[i].fragmentShader);
+		glDeleteProgram(shaders[i].program);
 	}
 
     // Delete vertex buffers
 	for (uint i = 0; i < vertexBuffers.getCount(); i++){
-		glDeleteBuffersARB(1, &vertexBuffers[i].vboVB);
+		glDeleteBuffers(1, &vertexBuffers[i].vboVB);
 	}
 
 	// Delete index buffers
 	for (uint i = 0; i < indexBuffers.getCount(); i++){
-		glDeleteBuffersARB(1, &indexBuffers[i].vboIB);
+		glDeleteBuffers(1, &indexBuffers[i].vboIB);
 	}
 
 	// Delete textures
@@ -341,7 +340,7 @@ OpenGLRenderer::~OpenGLRenderer(){
 		removeTexture(i);
 	}
 
-	if (fbo) glDeleteFramebuffersEXT(1, &fbo);
+	if (fbo) glDeleteFramebuffers(1, &fbo);
 }
 
 void OpenGLRenderer::resetToDefaults(){
@@ -414,15 +413,15 @@ static const GLint internalFormats[] = {
 	0,
 
 	// Float formats
-	GL_INTENSITY_FLOAT16_ATI,
+	GL_R16F,
 	GL_LUMINANCE_ALPHA_FLOAT16_ATI,
 	GL_RGB_FLOAT16_ATI,
-	GL_RGBA_FLOAT16_ATI,
+	GL_RGBA16F,
 
-	GL_INTENSITY_FLOAT32_ATI,
+	GL_R32F,
 	GL_LUMINANCE_ALPHA_FLOAT32_ATI,
 	GL_RGB_FLOAT32_ATI,
-	GL_RGBA_FLOAT32_ATI,
+	GL_RGBA32F,
 
 	// Signed integer formats
 	0, // GL_INTENSITY16I_EXT,
@@ -457,7 +456,7 @@ static const GLint internalFormats[] = {
 	// Depth formats
 	GL_DEPTH_COMPONENT16,
 	GL_DEPTH_COMPONENT24,
-	GL_DEPTH24_STENCIL8_EXT,
+	GL_DEPTH24_STENCIL8,
 	0, // GL_DEPTH_COMPONENT32F,
 
 	// Compressed formats
@@ -465,7 +464,7 @@ static const GLint internalFormats[] = {
 	GL_COMPRESSED_RGBA_S3TC_DXT3_EXT,
 	GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
 	0, // ATI1N not yet supported
-	GL_COMPRESSED_LUMINANCE_ALPHA_3DC_ATI,
+	0,//GL_COMPRESSED_LUMINANCE_ALPHA_3DC_ATI,
 };
 
 static const GLenum srcFormats[] = { 0, GL_LUMINANCE, GL_LUMINANCE_ALPHA, GL_RGB, GL_RGBA };
@@ -538,7 +537,7 @@ static const GLenum srcTypes[] = {
 	// Depth formats
 	GL_UNSIGNED_SHORT,
 	GL_UNSIGNED_INT,
-	GL_UNSIGNED_INT_24_8_EXT,
+	GL_UNSIGNED_INT_24_8,
 	0, // D32F not supported
 
 	// Compressed formats
@@ -628,14 +627,14 @@ TextureID OpenGLRenderer::addTexture(Image &img, const SamplerStateID samplerSta
 			int size = img.getMipMappedSize(mipMapLevel, 1) / 6;
 			for (uint i = 0; i < 6; i++){
 				if (isCompressedFormat(format)){
-					glCompressedTexImage2DARB(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, mipMapLevel, internalFormat, img.getWidth(mipMapLevel), img.getHeight(mipMapLevel), 0, size, src + i * size);
+					glCompressedTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, mipMapLevel, internalFormat, img.getWidth(mipMapLevel), img.getHeight(mipMapLevel), 0, size, src + i * size);
 				} else {
 					glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, mipMapLevel, internalFormat, img.getWidth(mipMapLevel), img.getHeight(mipMapLevel), 0, srcFormat, srcType, src + i * size);
 				}
 			}
 		} else if (img.is3D()){
 			if (isCompressedFormat(format)){
-				glCompressedTexImage3DARB(tex.glTarget, mipMapLevel, internalFormat, img.getWidth(mipMapLevel), img.getHeight(mipMapLevel), img.getDepth(mipMapLevel), 0, img.getMipMappedSize(mipMapLevel, 1), src);
+				glCompressedTexImage3D(tex.glTarget, mipMapLevel, internalFormat, img.getWidth(mipMapLevel), img.getHeight(mipMapLevel), img.getDepth(mipMapLevel), 0, img.getMipMappedSize(mipMapLevel, 1), src);
 			} else {
 				glTexImage3D(tex.glTarget, mipMapLevel, internalFormat, img.getWidth(mipMapLevel), img.getHeight(mipMapLevel), img.getDepth(mipMapLevel), 0, srcFormat, srcType, src);
 			}
@@ -643,7 +642,7 @@ TextureID OpenGLRenderer::addTexture(Image &img, const SamplerStateID samplerSta
       if(img.isArray())
       {
 			  if (isCompressedFormat(format)){
-				  glCompressedTexImage3DARB(tex.glTarget, mipMapLevel, internalFormat, img.getWidth(mipMapLevel), img.getHeight(mipMapLevel), img.getArraySize(), 0, img.getSliceSize(mipMapLevel) * img.getArraySize(), NULL);
+				  glCompressedTexImage3D(tex.glTarget, mipMapLevel, internalFormat, img.getWidth(mipMapLevel), img.getHeight(mipMapLevel), img.getArraySize(), 0, img.getSliceSize(mipMapLevel) * img.getArraySize(), NULL);
 			  } else {
           glTexImage3D(tex.glTarget, mipMapLevel, internalFormat, img.getWidth(mipMapLevel), img.getHeight(mipMapLevel), img.getArraySize(), 0, srcFormat, srcType, NULL);
 			  }
@@ -654,7 +653,7 @@ TextureID OpenGLRenderer::addTexture(Image &img, const SamplerStateID samplerSta
           unsigned char * arraySlice = img.getPixels(mipMapLevel, a);
 
 			    if (isCompressedFormat(format)){
-            glCompressedTexSubImage3DARB(tex.glTarget,  mipMapLevel, 0, 0, a, img.getWidth(mipMapLevel),  img.getHeight(mipMapLevel), 1, internalFormat, img.getSliceSize(mipMapLevel), arraySlice);
+            glCompressedTexSubImage3D(tex.glTarget,  mipMapLevel, 0, 0, a, img.getWidth(mipMapLevel),  img.getHeight(mipMapLevel), 1, internalFormat, img.getSliceSize(mipMapLevel), arraySlice);
 			    } else {
             glTexSubImage3D(tex.glTarget, mipMapLevel, 0, 0, a, img.getWidth(mipMapLevel), img.getHeight(mipMapLevel), 1, srcFormat, srcType, arraySlice);
 			    }
@@ -664,7 +663,7 @@ TextureID OpenGLRenderer::addTexture(Image &img, const SamplerStateID samplerSta
       else
       {
 			  if (isCompressedFormat(format)){
-				  glCompressedTexImage2DARB(tex.glTarget, mipMapLevel, internalFormat, img.getWidth(mipMapLevel), img.getHeight(mipMapLevel), 0, img.getMipMappedSize(mipMapLevel, 1), src);
+				  glCompressedTexImage2D(tex.glTarget, mipMapLevel, internalFormat, img.getWidth(mipMapLevel), img.getHeight(mipMapLevel), 0, img.getMipMappedSize(mipMapLevel, 1), src);
 			  } else {
 				  glTexImage2D(tex.glTarget, mipMapLevel, internalFormat, img.getWidth(mipMapLevel), img.getHeight(mipMapLevel), 0, srcFormat, srcType, src);
 			  }
@@ -679,6 +678,25 @@ TextureID OpenGLRenderer::addTexture(Image &img, const SamplerStateID samplerSta
 
 	return textures.add(tex);
 }
+
+
+void OpenGLRenderer::updateTexture(TextureID texId, uint a_w, uint a_h, FORMAT a_format, const void * a_data)
+{
+  glBindTexture(textures[texId].glTarget, textures[texId].glTexID);
+
+	GLenum srcFormat = srcFormats[getChannelCount(a_format)];
+  GLenum srcType = srcTypes[a_format];
+
+  glTexSubImage2D(textures[texId].glTarget, 0, 0, 0, a_w, a_h, srcFormat, srcType, a_data);
+
+  glBindTexture(textures[texId].glTarget, 0);
+
+  // We adjusted whet texture was bound - reset the cached state
+	for (uint i = 0; i < MAX_TEXTUREUNIT; i++){
+    currentTextures[i] = TEXTURE_NONE;
+	}
+}
+
 
 TextureID OpenGLRenderer::addRenderTarget(const int width, const int height, const int depth, const int mipMapCount, const int arraySize, const FORMAT format, const int msaaSamples, const SamplerStateID samplerState, uint flags){
 	if (isCompressedFormat(format) || arraySize > 1) return false;
@@ -712,11 +730,11 @@ TextureID OpenGLRenderer::addRenderDepth(const int width, const int height, cons
 
 	Texture tex;
 	memset(&tex, 0, sizeof(tex));
-	tex.glTarget = GL_RENDERBUFFER_EXT;
+	tex.glTarget = GL_RENDERBUFFER;
 	tex.format = format;
 
 	// Create depth renderbuffer
-	glGenRenderbuffersEXT(1, &tex.glDepthID);
+	glGenRenderbuffers(1, &tex.glDepthID);
 
 	TextureID rt = textures.add(tex);
 	setRenderTargetSize(rt, width, height);
@@ -728,15 +746,15 @@ void OpenGLRenderer::setRenderTargetSize(const TextureID renderTarget, const int
 	textures[renderTarget].width  = width;
 	textures[renderTarget].height = height;
 
-	if (textures[renderTarget].glTarget == GL_RENDERBUFFER_EXT){
+	if (textures[renderTarget].glTarget == GL_RENDERBUFFER){
 		FORMAT format = textures[renderTarget].format;
 
 		// Bind render buffer
-		glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, textures[renderTarget].glDepthID);
-		glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, internalFormats[format], width, height);
+		glBindRenderbuffer(GL_RENDERBUFFER, textures[renderTarget].glDepthID);
+		glRenderbufferStorage(GL_RENDERBUFFER, internalFormats[format], width, height);
 
 		// Restore renderbuffer
-		glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, 0);
+		glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
 	} else {
 		FORMAT format = textures[renderTarget].format;
@@ -746,7 +764,7 @@ void OpenGLRenderer::setRenderTargetSize(const TextureID renderTarget, const int
 		GLenum srcType = srcTypes[format];
 		if (isDepthFormat(format)){
 			if (isStencilFormat(format)){
-				srcFormat = GL_DEPTH_STENCIL_EXT;
+				srcFormat = GL_DEPTH_STENCIL;
 			} else {
 				srcFormat = GL_DEPTH_COMPONENT;
 			}
@@ -783,8 +801,8 @@ bool OpenGLRenderer::generateMipMaps(const TextureID renderTarget){
 
 void OpenGLRenderer::removeTexture(const TextureID texture){
 	if (textures[texture].glTarget){
-		if (textures[texture].glTarget == GL_RENDERBUFFER_EXT){
-			glDeleteRenderbuffersEXT(1, &textures[texture].glDepthID);
+		if (textures[texture].glTarget == GL_RENDERBUFFER){
+			glDeleteRenderbuffers(1, &textures[texture].glDepthID);
 		} else {
 			glDeleteTextures(1, &textures[texture].glTexID);
 		}
@@ -799,7 +817,7 @@ int samplerCompare(const void *sampler0, const void *sampler1){
 ShaderID OpenGLRenderer::addShader(const char *vsText, const char *gsText, const char *fsText, const int vsLine, const int gsLine, const int fsLine,
                                    const char *header, const char *extra, const char *fileName, const char **attributeNames, const int nAttributes, const uint flags){
 
-	if (!GLSL_supported || (vsText == NULL && fsText == NULL) || gsText != NULL) return SHADER_NONE;
+	if ((vsText == NULL && fsText == NULL) || gsText != NULL) return SHADER_NONE;
 
 	Shader shader;
 	const GLcharARB *shaderStrings[6];
@@ -841,51 +859,51 @@ ShaderID OpenGLRenderer::addShader(const char *vsText, const char *gsText, const
 
 	shader.vertexShader = 0;
 	shader.fragmentShader = 0;
-	shader.program = glCreateProgramObjectARB();
+	shader.program = glCreateProgram();
 
 	// Compile the vertex shader
 	if (vsText != NULL){
-		shader.vertexShader = glCreateShaderObjectARB(GL_VERTEX_SHADER_ARB);
+		shader.vertexShader = glCreateShader(GL_VERTEX_SHADER);
 		sprintf(line, "#line %d\n", vsLine);
 		shaderStrings[strIndex] = vsText;
-		glShaderSourceARB(shader.vertexShader, strIndex + 1, shaderStrings, NULL);
-		glCompileShaderARB(shader.vertexShader);
-		glGetObjectParameterivARB(shader.vertexShader, GL_OBJECT_COMPILE_STATUS_ARB, &vsResult);
+		glShaderSource(shader.vertexShader, strIndex + 1, shaderStrings, NULL);
+		glCompileShader(shader.vertexShader);
+		glGetShaderiv(shader.vertexShader, GL_COMPILE_STATUS, &vsResult);
 		if (vsResult){
-			glAttachObjectARB(shader.program, shader.vertexShader);
+			glAttachShader(shader.program, shader.vertexShader);
 		} else {
 			infoLogPos += sprintf(infoLog + infoLogPos, "Vertex shader error:\n");
 		}
-		glGetInfoLogARB(shader.vertexShader, sizeof(infoLog) - infoLogPos, &len, infoLog + infoLogPos);
+		glGetShaderInfoLog(shader.vertexShader, sizeof(infoLog) - infoLogPos, &len, infoLog + infoLogPos);
 		infoLogPos += len;
 	} else vsResult = GL_TRUE;
 
 	// Compile the fragment shader
 	if (fsText != NULL){
-		shader.fragmentShader = glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB);
+		shader.fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
 		sprintf(line, "#line %d\n", fsLine);
 		shaderStrings[strIndex] = fsText;
-		glShaderSourceARB(shader.fragmentShader, strIndex + 1, shaderStrings, NULL);
-		glCompileShaderARB(shader.fragmentShader);
-		glGetObjectParameterivARB(shader.fragmentShader, GL_OBJECT_COMPILE_STATUS_ARB, &fsResult);
+		glShaderSource(shader.fragmentShader, strIndex + 1, shaderStrings, NULL);
+		glCompileShader(shader.fragmentShader);
+		glGetShaderiv(shader.fragmentShader, GL_COMPILE_STATUS, &fsResult);
 		if (fsResult){
-			glAttachObjectARB(shader.program, shader.fragmentShader);
+			glAttachShader(shader.program, shader.fragmentShader);
 		} else {
 			infoLogPos += sprintf(infoLog + infoLogPos, "Fragment shader error:\n");
 		}
-		glGetInfoLogARB(shader.fragmentShader, sizeof(infoLog) - infoLogPos, &len, infoLog + infoLogPos);
+		glGetShaderInfoLog(shader.fragmentShader, sizeof(infoLog) - infoLogPos, &len, infoLog + infoLogPos);
 		infoLogPos += len;
 	} else fsResult = GL_TRUE;
 
 	// Link the shaders
 	if (vsResult && fsResult){
 		for (int i = 0; i < nAttributes; i++){
-			if (attributeNames[i]) glBindAttribLocationARB(shader.program, i, attributeNames[i]);
+			if (attributeNames[i]) glBindAttribLocation(shader.program, i, attributeNames[i]);
 		}
 
-		glLinkProgramARB(shader.program);
-		glGetObjectParameterivARB(shader.program, GL_OBJECT_LINK_STATUS_ARB, &linkResult);
-		glGetInfoLogARB(shader.program, sizeof(infoLog) - infoLogPos, &len, infoLog + infoLogPos);
+		glLinkProgram(shader.program);
+		glGetProgramiv(shader.program, GL_LINK_STATUS, &linkResult);
+		glGetProgramInfoLog(shader.program, sizeof(infoLog) - infoLogPos, &len, infoLog + infoLogPos);
 		infoLogPos += len;
 
 		outputDebugString(infoLog);
@@ -896,8 +914,8 @@ ShaderID OpenGLRenderer::addShader(const char *vsText, const char *gsText, const
 			glUseProgram(shader.program);
 
 			GLint uniformCount, maxLength;
-			glGetObjectParameterivARB(shader.program, GL_OBJECT_ACTIVE_UNIFORMS_ARB, &uniformCount);
-			glGetObjectParameterivARB(shader.program, GL_OBJECT_ACTIVE_UNIFORM_MAX_LENGTH_ARB, &maxLength);
+			glGetProgramiv(shader.program, GL_ACTIVE_UNIFORMS, &uniformCount);
+			glGetProgramiv(shader.program, GL_ACTIVE_UNIFORM_MAX_LENGTH, &maxLength);
 
 			Sampler  *samplers = (Sampler  *) malloc(uniformCount * sizeof(Sampler));
 			Constant *uniforms = (Constant *) malloc(uniformCount * sizeof(Constant));
@@ -910,7 +928,7 @@ ShaderID OpenGLRenderer::addShader(const char *vsText, const char *gsText, const
 				GLint length, size;
 				glGetActiveUniform(shader.program, i, maxLength, &length, &size, &type, name);
 
-				if ((type >= GL_SAMPLER_1D && type <= GL_SAMPLER_2D_RECT_SHADOW_ARB) ||
+				if ((type >= GL_SAMPLER_1D && type <= GL_SAMPLER_2D_RECT_SHADOW) ||
              type == GL_SAMPLER_2D_ARRAY )
         {
 					// Assign samplers to image units
@@ -1054,13 +1072,21 @@ VertexBufferID OpenGLRenderer::addVertexBuffer(const long size, const BufferAcce
 	VertexBuffer vb;
 	vb.size = size;
 
-	glGenBuffersARB(1, &vb.vboVB);
-	glBindBufferARB(GL_ARRAY_BUFFER_ARB, vb.vboVB);
-	glBufferDataARB(GL_ARRAY_BUFFER_ARB, size, data, usages[bufferAccess]);
-	glBindBufferARB(GL_ARRAY_BUFFER_ARB, 0);
+	glGenBuffers(1, &vb.vboVB);
+	glBindBuffer(GL_ARRAY_BUFFER, vb.vboVB);
+	glBufferData(GL_ARRAY_BUFFER, size, data, usages[bufferAccess]);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	return vertexBuffers.add(vb);
 }
+
+
+void OpenGLRenderer::deleteVertexBuffer(VertexBufferID bufferID)
+{
+  glDeleteBuffers(1, &vertexBuffers[bufferID].vboVB);
+  vertexBuffers[bufferID].vboVB = 0;
+}
+
 
 IndexBufferID OpenGLRenderer::addIndexBuffer(const uint nIndices, const uint indexSize, const BufferAccess bufferAccess, const void *data){
 	IndexBuffer ib;
@@ -1069,10 +1095,10 @@ IndexBufferID OpenGLRenderer::addIndexBuffer(const uint nIndices, const uint ind
 	ib.indexSize = indexSize;
 
 	uint size = nIndices * indexSize;
-	glGenBuffersARB(1, &ib.vboIB);
-	glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB, ib.vboIB);
-	glBufferDataARB(GL_ELEMENT_ARRAY_BUFFER_ARB, size, data, usages[bufferAccess]);
-	glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB, 0);
+	glGenBuffers(1, &ib.vboIB);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ib.vboIB);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, size, data, usages[bufferAccess]);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
 	return indexBuffers.add(ib);
 }
@@ -1087,10 +1113,10 @@ bool OpenGLRenderer::updateVertexBuffer(const VertexBufferID vertexBuffer, const
     
   GLuint vbo = vertexBuffers[vertexBuffer].vboVB;
 	if (vbo != currentVBO){
-		glBindBufferARB(GL_ARRAY_BUFFER_ARB, currentVBO = vbo);
+		glBindBuffer(GL_ARRAY_BUFFER, currentVBO = vbo);
 	}
 
-  glBufferSubDataARB(GL_ARRAY_BUFFER_ARB, offset, size, data);
+  glBufferSubData(GL_ARRAY_BUFFER, offset, size, data);
 
   return true;
 }
@@ -1252,7 +1278,7 @@ void OpenGLRenderer::applyTextures(){
 		TextureID currTex = currentTextures[i];
 
 		if (texture != currTex){
-			glActiveTextureARB(GL_TEXTURE0 + i);
+			glActiveTexture(GL_TEXTURE0 + i);
 			if (texture == TEXTURE_NONE){
 				if(textures[currTex].glTarget != GL_TEXTURE_2D_ARRAY)
         {
@@ -1277,7 +1303,7 @@ void OpenGLRenderer::applyTextures(){
 				}
 				glBindTexture(textures[texture].glTarget, textures[texture].glTexID);
 				if (textures[texture].lod != textureLod[i]){
-					glTexEnvf(GL_TEXTURE_FILTER_CONTROL_EXT, GL_TEXTURE_LOD_BIAS_EXT, textureLod[i] = textures[texture].lod);
+					glTexEnvf(GL_TEXTURE_FILTER_CONTROL, GL_TEXTURE_LOD_BIAS, textureLod[i] = textures[texture].lod);
 				}
 			}
 
@@ -1341,20 +1367,20 @@ void OpenGLRenderer::changeRenderTargets(const TextureID *colorRTs, const uint n
 	reset();
 	apply();
 
-	if (fbo == 0) glGenFramebuffersEXT(1, &fbo);
-	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo);
+	if (fbo == 0) glGenFramebuffers(1, &fbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
 	for (uint i = 0; i < nRenderTargets; i++){
 		TextureID colorRT = colorRTs[i];
 
 		if (textures[colorRT].flags & CUBEMAP){
 			if (colorRT != currentColorRT[i] || currentColorRTSlice[i] != slices[i]){
-				glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT + i, GL_TEXTURE_CUBE_MAP_POSITIVE_X + slices[i], textures[colorRT].glTexID, 0);
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_CUBE_MAP_POSITIVE_X + slices[i], textures[colorRT].glTexID, 0);
 				currentColorRTSlice[i] = slices[i];
 			}
 		} else {
 			if (colorRT != currentColorRT[i]){
-				glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT + i, GL_TEXTURE_2D, textures[colorRT].glTexID, 0);
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, textures[colorRT].glTexID, 0);
 				currentColorRT[i] = colorRT;
 			}
 		}
@@ -1362,7 +1388,7 @@ void OpenGLRenderer::changeRenderTargets(const TextureID *colorRTs, const uint n
 	
 	if (nRenderTargets != nCurrentRenderTargets){
 		for (uint i = nRenderTargets; i < nCurrentRenderTargets; i++){
-			glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT + i, GL_TEXTURE_2D, 0, 0);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, 0, 0);
 			currentColorRT[i] = TEXTURE_NONE;
 			currentColorRTSlice[i] = NO_SLICE;
 		}
@@ -1371,26 +1397,26 @@ void OpenGLRenderer::changeRenderTargets(const TextureID *colorRTs, const uint n
 			glDrawBuffer(GL_NONE);
 			glReadBuffer(GL_NONE);
 		} else {
-			glDrawBuffersARB(nRenderTargets, drawBuffers);
-			glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
+			glDrawBuffers(nRenderTargets, drawBuffers);
+			glReadBuffer(GL_COLOR_ATTACHMENT0);
 		}
 		nCurrentRenderTargets = nRenderTargets;
 	}
 
 	if (depthRT != currentDepthRT){
-		if (depthRT >= 0 && textures[depthRT].glTarget != GL_RENDERBUFFER_EXT){
-			glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_TEXTURE_2D, textures[depthRT].glTexID, 0);
+		if (depthRT >= 0 && textures[depthRT].glTarget != GL_RENDERBUFFER){
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, textures[depthRT].glTexID, 0);
 			if (isStencilFormat(textures[depthRT].format)){
-				glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_STENCIL_ATTACHMENT_EXT, GL_TEXTURE_2D, textures[depthRT].glTexID, 0);
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, textures[depthRT].glTexID, 0);
 			} else {
-				glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_STENCIL_ATTACHMENT_EXT, GL_TEXTURE_2D, 0, 0);
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, 0, 0);
 			}
 		} else {
-			glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, (depthRT < 0)? 0 : textures[depthRT].glTexID);
+			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, (depthRT < 0)? 0 : textures[depthRT].glTexID);
 			if (depthRT >= 0 && isStencilFormat(textures[depthRT].format)){
-				glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_STENCIL_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, textures[depthRT].glTexID);
+				glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, textures[depthRT].glTexID);
 			} else {
-				glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_STENCIL_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, 0);
+				glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, 0);
 			}
 		}
 		currentDepthRT = depthRT;
@@ -1410,7 +1436,7 @@ void OpenGLRenderer::changeRenderTargets(const TextureID *colorRTs, const uint n
 }
 
 void OpenGLRenderer::changeToMainFramebuffer(){
-	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glViewport(0, 0, viewportWidth, viewportHeight);
 	changeFrontFace(GL_CW);
 }
@@ -1418,9 +1444,9 @@ void OpenGLRenderer::changeToMainFramebuffer(){
 void OpenGLRenderer::changeShader(const ShaderID shader){
 	if (shader != currentShader){
 		if (shader == SHADER_NONE){
-			glUseProgramObjectARB(0);
+			glUseProgram(0);
 		} else {
-			glUseProgramObjectARB(shaders[shader].program);
+			glUseProgram(shaders[shader].program);
 		}
 		currentShader = shader;
 	}
@@ -1441,8 +1467,8 @@ void OpenGLRenderer::changeVertexFormat(const VertexFormatID vertexFormat){
 		if (!sel->normal.size &&  curr->normal.size) glDisableClientState(GL_NORMAL_ARRAY);
 
 		for (int i = 0; i < MAX_GENERIC; i++){
-			if ( sel->generic[i].size && !curr->generic[i].size) glEnableVertexAttribArrayARB(i);
-			if (!sel->generic[i].size &&  curr->generic[i].size) glDisableVertexAttribArrayARB(i);
+			if ( sel->generic[i].size && !curr->generic[i].size) glEnableVertexAttribArray(i);
+			if (!sel->generic[i].size &&  curr->generic[i].size) glDisableVertexAttribArray(i);
 		}
 
 		for (int i = 0; i < MAX_TEXCOORD; i++){
@@ -1471,7 +1497,7 @@ void OpenGLRenderer::changeVertexBuffer(const int stream, const VertexBufferID v
 	if (vertexBuffer != VB_NONE) vbo = vertexBuffers[vertexBuffer].vboVB;
 
 	if (vbo != currentVBO){
-		glBindBufferARB(GL_ARRAY_BUFFER_ARB, currentVBO = vbo);
+		glBindBuffer(GL_ARRAY_BUFFER, currentVBO = vbo);
 	}
 
 	if (vertexBuffer != currentVertexBuffers[stream] || offset != currentOffsets[stream] || currentVertexFormat != activeVertexFormat[stream]){
@@ -1491,7 +1517,7 @@ void OpenGLRenderer::changeVertexBuffer(const int stream, const VertexBufferID v
 
 			for (int i = 0; i < MAX_GENERIC; i++){
 				if (cvf->generic[i].stream == stream && cvf->generic[i].size){
-					glVertexAttribPointerARB(i, cvf->generic[i].size, glTypes[cvf->generic[i].format], GL_TRUE, vertexSize, base + cvf->generic[i].offset);
+					glVertexAttribPointer(i, cvf->generic[i].size, glTypes[cvf->generic[i].format], GL_TRUE, vertexSize, base + cvf->generic[i].offset);
 				}
 			}
 
@@ -1512,9 +1538,9 @@ void OpenGLRenderer::changeVertexBuffer(const int stream, const VertexBufferID v
 void OpenGLRenderer::changeIndexBuffer(const IndexBufferID indexBuffer){
 	if (indexBuffer != currentIndexBuffer){
 		if (indexBuffer == IB_NONE){
-			glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB, 0);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		} else {
-			glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB, indexBuffers[indexBuffer].vboIB);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffers[indexBuffer].vboIB);
 		}
 
 		currentIndexBuffer = indexBuffer;
@@ -1796,7 +1822,7 @@ void OpenGLRenderer::clear(const bool clearColor, const bool clearDepth, const b
 
 void OpenGLRenderer::drawArrays(const Primitives primitives, const int firstVertex, const int nVertices){
 	glDrawArrays(glPrim[primitives], firstVertex, nVertices);
-
+  nVertexCount += nVertices;
 	nDrawCalls++;
 }
 
@@ -1804,7 +1830,7 @@ void OpenGLRenderer::drawElements(const Primitives primitives, const int firstIn
 	uint indexSize = indexBuffers[currentIndexBuffer].indexSize;
 
 	glDrawElements(glPrim[primitives], nIndices, indexSize == 2? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, BUFFER_OFFSET(indexSize * firstIndex));
-
+  nVertexCount += nIndices;
 	nDrawCalls++;
 }
 
@@ -1832,7 +1858,7 @@ void OpenGLRenderer::drawPlain(const Primitives primitives, vec2 *vertices, cons
 	setVertexBuffer(0, vertices);
 	apply();
 	
-	if (color) glColor4fv(*color); else glColor3f(1, 1, 1);
+  if (color) glColor4fv(value_ptr(*color)); else glColor3f(1, 1, 1);
 
 	glDrawArrays(glPrim[primitives], 0, nVertices);
 
@@ -1856,7 +1882,7 @@ void OpenGLRenderer::drawTextured(const Primitives primitives, TexVertex *vertic
 	setVertexBuffer(0, vertices);
 	apply();
 
-	if (color) glColor4fv(*color); else glColor3f(1, 1, 1);
+	if (color) glColor4fv(value_ptr(*color)); else glColor3f(1, 1, 1);
 
 	glDrawArrays(glPrim[primitives], 0, nVertices);
 
@@ -1888,7 +1914,7 @@ void OpenGLRenderer::setupSampler(GLenum glTarget, const SamplerState &ss){
 	glTexParameteri(glTarget, GL_TEXTURE_MIN_FILTER, ss.minFilter);
 
 	// Setup anisotropic filtering
-	if (ss.aniso > 1 && /*glTarget == GL_TEXTURE_2D && */GL_EXT_texture_filter_anisotropic_supported){
+	if (ss.aniso > 1 && /*glTarget == GL_TEXTURE_2D && */ogl_ext_EXT_texture_filter_anisotropic){
 		glTexParameteri(glTarget, GL_TEXTURE_MAX_ANISOTROPY_EXT, ss.aniso);
 	}
 }

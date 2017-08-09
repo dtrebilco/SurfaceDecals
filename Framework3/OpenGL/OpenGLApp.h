@@ -47,7 +47,12 @@ public:
 
 	bool captureScreenshot(Image &img);
 
+  void drawFPSChart();
+
 protected:
+
+  float m_frameDeltas[500];        //!< The array of frame delta history 
+  unsigned int m_frameDeltaIndex;      //!< The current frame delta index
 
 #if defined(_WIN32)
 	HDC hdc;

@@ -59,8 +59,9 @@ void BaseApp::loadConfig(){
 
 	done = false;
 
-	showFPS = config.getBoolDef("ShowFPS", true);
-	invertMouse = config.getBoolDef("InvertMouse", false);
+	showFPS = config.getBoolDef("ShowFPS", false);
+	showFPSChart = config.getBoolDef("ShowFPSChart", false);
+	invertMouse = config.getBoolDef("InvertMouse", true);
 
 	mouseSensibility = config.getFloatDef("MouseSensibility", 0.003f);
 
@@ -92,15 +93,15 @@ void BaseApp::loadConfig(){
 	benchmarkKey  = config.getIntegerDef("KeyBenchmark",  KEY_F10);
 
 	xStrafeAxis = config.getIntegerDef("StrafeXAxis", 0);
-	yStrafeAxis = config.getIntegerDef("StrafeYAxis", 1);
-	zStrafeAxis = config.getIntegerDef("StrafeZAxis", 2);
+	yStrafeAxis = config.getIntegerDef("StrafeYAxis", 2);
+	zStrafeAxis = config.getIntegerDef("StrafeZAxis", 1);
 	xTurnAxis = config.getIntegerDef("TurnXAxis", 3);
 	yTurnAxis = config.getIntegerDef("TurnYAxis", 4);
 
 	invertXStrafeAxis = config.getBoolDef("StrafeXAxisInvert", false);
 	invertYStrafeAxis = config.getBoolDef("StrafeYAxisInvert", true);
 	invertZStrafeAxis = config.getBoolDef("StrafeZAxisInvert", true);
-	invertXTurnAxis = config.getBoolDef("TurnXAxisInvert", false);
+	invertXTurnAxis = config.getBoolDef("TurnXAxisInvert", true);
 	invertYTurnAxis = config.getBoolDef("TurnYAxisInvert", true);
 
 	optionsButton = config.getIntegerDef("OptionsButton", 7);
@@ -116,6 +117,10 @@ void BaseApp::initGUI(){
 	invertMouseBox = new CheckBox(0, 0, 180, 36, "Invert mouse", invertMouse);
 	invertMouseBox->setListener(this);
 	configDialog->addWidget(tab, invertMouseBox);
+
+  showFPSChartBox = new CheckBox(200, 120, 180, 36, "Show FPS Chart", showFPSChart);
+	showFPSChartBox->setListener(this);
+	configDialog->addWidget(tab, showFPSChartBox);
 
 	configDialog->addWidget(tab, new Label(0, 40, 192, 36, "Mouse sensitivity"));
 	mouseSensSlider = new Slider(0, 80, 300, 24, 0.0005f, 0.01f, mouseSensibility);
@@ -166,6 +171,8 @@ void BaseApp::initGUI(){
 
 void BaseApp::updateConfig(){
 	config.setBool("ShowFPS", showFPS);
+  config.setBool("ShowFPSChart", showFPSChart);
+  
 	config.setBool("InvertMouse", invertMouse);
 	config.setFloat("MouseSensibility", mouseSensibility);
 
@@ -208,7 +215,9 @@ void BaseApp::updateConfig(){
 void BaseApp::onCheckBoxClicked(CheckBox *checkBox){
 	if (checkBox == invertMouseBox){
 		invertMouse = invertMouseBox->isChecked();
-	} else if (checkBox == fullscreenBox){
+	} else if (checkBox == showFPSChartBox){
+		showFPSChart = showFPSChartBox->isChecked();
+  } else if (checkBox == fullscreenBox){
 		resolution->setEnabled(fullscreenBox->isChecked());
 	} else if (checkBox == vSyncBox){
 		vSync = vSyncBox->isChecked();
@@ -301,7 +310,7 @@ void BaseApp::drawGUI(){
 		static int fps = 0;
 		static int nFrames = 0;
 
-		if (accTime > 0.1f){
+		if (accTime > 1.0f){
 			fps = (int) (nFrames / accTime + 0.5f);
 			nFrames = 0;
 			accTime = 0;
@@ -309,11 +318,15 @@ void BaseApp::drawGUI(){
 		accTime += frameTime;
 		nFrames++;
 
-		char str[16];
-		sprintf(str, "%d", fps);
+		char str[1000];
+		sprintf(str, "%d (%.3fms)", fps, frameTime * 1000.0f);
 
 		renderer->drawText(str, 8, 8, 30, 38, defaultFont, linearClamp, blendSrcAlpha, noDepthTest);
 	}
+  if(showFPSChart)
+  {
+    drawFPSChart();
+  }
 
 #ifdef PROFILE
 	const char *profileString = renderer->getProfileString();
@@ -396,7 +409,7 @@ void BaseApp::controls(){
 	float cosX = cosf(wx), sinX = sinf(wx), cosY = cosf(wy), sinY = sinf(wy);
 	vec3 dx(cosY, 0, sinY);
 	vec3 dy(-sinX * sinY,  cosX, sinX * cosY);
-	vec3 dz(-cosX * sinY, -sinX, cosX * cosY);
+	vec3 dz(cosX * sinY, sinX, -cosX * cosY);
 
 	vec3 dir(0, 0, 0);
 	if (keys[leftKey])     dir -= dx;
@@ -413,8 +426,21 @@ void BaseApp::controls(){
 
 	dir = vec3(0, 0, 0);
 	if (xStrafeAxis >= 0) dir += joystickAxes[xStrafeAxis] * (invertXStrafeAxis? -dx : dx);
-	if (yStrafeAxis >= 0) dir += joystickAxes[yStrafeAxis] * (invertYStrafeAxis? -dy : dy);
+	//if (yStrafeAxis >= 0) dir += joystickAxes[yStrafeAxis] * (invertYStrafeAxis? -dy : dy);
 	if (zStrafeAxis >= 0) dir += joystickAxes[zStrafeAxis] * (invertZStrafeAxis? -dz : dz);
+
+  // Accelerate/Decelerate basd on the y axis
+	if (yStrafeAxis >= 0)
+  {
+    if(joystickAxes[yStrafeAxis] > 0.01)
+    {
+      dir /= joystickAxes[yStrafeAxis] * 20.0f;
+    }
+    else if(joystickAxes[yStrafeAxis] < -0.01)
+    {
+      dir *= joystickAxes[yStrafeAxis] * -100.0f;
+    }
+  }
 
 	if (dot(dir, dir) > 0){
 		moveCamera(dir);
@@ -668,13 +694,17 @@ void BaseApp::onSize(const int w, const int h){
 	bool move_x = cdx + cdw > (float) w;
 	bool move_y = cdy + cdh > (float) h;
 
-	if (move_x) cdx = max(w - cdw, 0);
-	if (move_y) cdy = max(h - cdh, 0);
+	if (move_x) cdx = max(w - cdw, 0.0f);
+	if (move_y) cdy = max(h - cdh, 0.0f);
 
 	if (move_x || move_y){
 		configDialog->setPosition(cdx, cdy);
 		configDialog->updateWidgets();
 	}
+}
+
+void BaseApp::onFileDrop(const char * file)
+{
 }
 
 void BaseApp::onClose(){

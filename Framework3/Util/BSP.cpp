@@ -121,7 +121,7 @@ void BTri::finalize(){
 no_alias bool BTri::intersects(const vec3 &v0, const vec3 &v1) const {
 	vec3 dir = v0 - v1;
 //	float k = (dot(normal, v0) + offset) / dot(normal, dir);
-	float k = planeDistance(plane, v0) / dot(plane.xyz(), dir);
+	float k = planeDistance(plane, v0) / dot(vec3(plane), dir);
 
 	if (k < 0 || k > 1) return false;
 
@@ -245,7 +245,7 @@ no_alias bool BNode::intersects(const vec3 &v0, const vec3 &v1, const vec3 &dir,
 	if (d > 0){
 		if (front != NULL && front->intersects(v0, v1, dir, point, triangle)) return true;
 		if (planeDistance(tri.plane, v1) < 0){
-			vec3 pos = v0 - (d / dot(tri.plane.xyz(), dir)) * dir;
+			vec3 pos = v0 - (d / dot(vec3(tri.plane), dir)) * dir;
 			if (tri.isAbove(pos)){
 				if (point) *point = pos;
 				if (triangle) *triangle = &tri;
@@ -256,7 +256,7 @@ no_alias bool BNode::intersects(const vec3 &v0, const vec3 &v1, const vec3 &dir,
 	} else {
 		if (back != NULL && back->intersects(v0, v1, dir, point, triangle)) return true;
 		if (planeDistance(tri.plane, v1) > 0){
-			vec3 pos = v0 - (d / dot(tri.plane.xyz(), dir)) * dir;
+			vec3 pos = v0 - (d / dot(vec3(tri.plane), dir)) * dir;
 			if (tri.isAbove(pos)){
 				if (point) *point = pos;
 				if (triangle) *triangle = &tri;
@@ -331,7 +331,7 @@ no_alias BTri *BNode::intersectsCached(const vec3 &v0, const vec3 &v1, const vec
 			if (tri) return tri;
 		}
 		if (planeDistance(tri.plane, v1) < 0){
-			vec3 pos = v0 - (d / dot(tri.plane.xyz(), dir)) * dir;
+			vec3 pos = v0 - (d / dot(vec3(tri.plane), dir)) * dir;
 			if (tri.isAbove(pos)) return (BTri *) &tri;
 			if (back != NULL){
 				BTri *tri = back->intersectsCached(v0, v1, dir);
@@ -344,7 +344,7 @@ no_alias BTri *BNode::intersectsCached(const vec3 &v0, const vec3 &v1, const vec
 			if (tri) return tri;
 		}
 		if (planeDistance(tri.plane, v1) > 0){
-			vec3 pos = v0 - (d / dot(tri.plane.xyz(), dir)) * dir;
+			vec3 pos = v0 - (d / dot(vec3(tri.plane), dir)) * dir;
 			if (tri.isAbove(pos)) return (BTri *) &tri;
 			if (front != NULL){
 				BTri *tri = front->intersectsCached(v0, v1, dir);
@@ -448,7 +448,7 @@ no_alias bool BNode::pushSphere(vec3 &pos, const float radius) const {
 	if (fabsf(d) < radius){
 		if (tri.isAbove(pos)){
 //			pos += (radius - d) * tri.normal; 
-			pos += (radius - d) * tri.plane.xyz();
+			pos += (radius - d) * vec3(tri.plane);
 			pushed = true;
 		}
 	}

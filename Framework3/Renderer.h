@@ -320,6 +320,7 @@ public:
 	int getFormatSize(const AttributeFormat format) const;
 	virtual VertexFormatID addVertexFormat(const FormatDesc *formatDesc, const uint nAttribs, const ShaderID shader = SHADER_NONE) = 0;
 	virtual VertexBufferID addVertexBuffer(const long size, const BufferAccess bufferAccess, const void *data = NULL) = 0;
+	virtual void deleteVertexBuffer(VertexBufferID bufferID) = 0;
 	virtual IndexBufferID addIndexBuffer(const uint nIndices, const uint indexSize, const BufferAccess bufferAccess, const void *data = NULL) = 0;
 
   virtual bool updateVertexBuffer(const VertexBufferID vertexBuffer, const intptr offset, const long size, const void *data) = 0;
@@ -487,6 +488,7 @@ public:
 	void resetStatistics();
 	void addDrawCalls(const uint nCalls){ nDrawCalls += nCalls; }
 	uint getDrawCallCount(){ return nDrawCalls; }
+  uint getVertexDrawCount(){ return nVertexCount; }
 
 #ifdef PROFILE
 	// Profiling
@@ -542,6 +544,7 @@ protected:
 
 	// Statistics counters
 	uint nDrawCalls;
+  uint nVertexCount;
 
 #ifdef PROFILE
 	// Profiling

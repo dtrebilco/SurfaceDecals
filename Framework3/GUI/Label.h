@@ -29,6 +29,8 @@ public:
 	Label(const float x, const float y, const float w, const float h, const char *txt);
 	virtual ~Label();
 
+  void setText(const char *txt);
+
 	void draw(Renderer *renderer, const FontID defaultFont, const SamplerStateID linearClamp, const BlendStateID blendSrcAlpha, const DepthStateID depthState);
 
 protected:

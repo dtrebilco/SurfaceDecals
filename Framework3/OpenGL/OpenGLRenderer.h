@@ -22,9 +22,11 @@
 #ifndef _OPENGLRENDERER_H_
 #define _OPENGLRENDERER_H_
 
-#include "OpenGLExtensions.h"
 #include "../Renderer.h"
 #include "../Util/String.h"
+
+#include "gl_Extensions.h"
+#include "wgl_Extensions.h"
 
 class OpenGLRenderer : public Renderer {
 public:
@@ -41,6 +43,7 @@ public:
 	void reset(const uint flags = RESET_ALL);
 
 	TextureID addTexture(Image &img, const SamplerStateID samplerState = SS_NONE, uint flags = 0);
+	void updateTexture(TextureID texId, uint a_w, uint a_h, FORMAT a_format, const void * a_data);
 
 	TextureID addRenderTarget(const int width, const int height, const int depth, const int mipMapCount, const int arraySize, const FORMAT format, const int msaaSamples = 1, const SamplerStateID samplerState = SS_NONE, uint flags = 0);
 	TextureID addRenderDepth(const int width, const int height, const int arraySize, const FORMAT format, const int msaaSamples = 1, const SamplerStateID samplerState = SS_NONE, uint flags = 0);
@@ -55,6 +58,7 @@ public:
 
 	VertexFormatID addVertexFormat(const FormatDesc *formatDesc, const uint nAttribs, const ShaderID shader = SHADER_NONE);
 	VertexBufferID addVertexBuffer(const long size, const BufferAccess bufferAccess, const void *data = NULL);
+  void deleteVertexBuffer(VertexBufferID bufferID);
 
   bool updateVertexBuffer(const VertexBufferID vertexBuffer, const intptr offset, const long size, const void *data);
   

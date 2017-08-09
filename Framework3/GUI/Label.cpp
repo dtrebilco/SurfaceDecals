@@ -21,18 +21,26 @@
 
 #include "Label.h"
 
-Label::Label(const float x, const float y, const float w, const float h, const char *txt){
+Label::Label(const float x, const float y, const float w, const float h, const char *txt):
+  text(NULL)
+{
 	setPosition(x, y);
 	setSize(w, h);
 
-	text = new char[strlen(txt) + 1];
-	strcpy(text, txt);
+  setText(txt);
 
 	enabled = false;
 }
 
 Label::~Label(){
-	delete text;
+	delete [] text;
+}
+
+void Label::setText(const char *txt)
+{
+	delete [] text;
+	text = new char[strlen(txt) + 1];
+	strcpy(text, txt);
 }
 
 void Label::draw(Renderer *renderer, const FontID defaultFont, const SamplerStateID linearClamp, const BlendStateID blendSrcAlpha, const DepthStateID depthState){

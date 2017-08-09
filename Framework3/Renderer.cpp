@@ -524,6 +524,7 @@ void Renderer::setViewport(const int width, const int height){
 
 void Renderer::resetStatistics(){
 	nDrawCalls = 0;
+  nVertexCount = 0;
 }
 
 #ifdef PROFILE
