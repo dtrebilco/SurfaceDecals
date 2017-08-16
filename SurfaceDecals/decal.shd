@@ -87,7 +87,7 @@ void main()
   vec2 texCoords = positionCS.xy * 0.5 + 0.5;
 
   // Lookup intensity texture
-  float intensity = texture(decalTex, texCoords).r * saturate(matIntensity);
+  float intensity = texture(decalTex, texCoords).r * saturate(matIntensity) * 0.25;
 
   // Test if the z is out side the range  
   //if(abs(positionCS.z) >= 1.0) 
